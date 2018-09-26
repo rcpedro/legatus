@@ -15,7 +15,7 @@ module Legatus
 
       def find_or_init(filters, attributes)
         instance = self.find_one(filters)
-        return if instance.present?
+        return instance if instance.present?
 
         instance = self.new
         instance.assign_attributes(attributes) 

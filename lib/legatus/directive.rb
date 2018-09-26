@@ -21,17 +21,25 @@ module Legatus
         end
       end
 
-      def permit(parent, attributes, subschema=nil)
-        result = parent.permit(attributes)
-        result.tap do |whitelisted|
-          subschema.each do |key, allowed|
-            child = parent[key]
-            next if child.nil?
-            
-            if child.is_a?(Array)
-              whitelisted[:"#{key}_attributes"] = child.map { |c| c.permit(allowed) }
-            else
-              whitelisted[:"#{key}_attributes"] = child.permit(allowed)
+      def chain(obj, invocations)
+        return Chain.new(invocations).apply(obj)
+      end
+
+      def permit(attributes, subschema=nil)
+        lambda do |parent|
+          result = parent.permit(attributes)
+          return result if subschema.nil?
+
+          result.tap do |whitelisted|
+            subschema.each do |key, allowed|
+              child = parent[key]
+              next if child.nil?
+              
+              if child.is_a?(Array)
+                whitelisted[:"#{key}_attributes"] = child.map { |c| c.permit(allowed) }
+              else
+                whitelisted[:"#{key}_attributes"] = child.permit(allowed)
+              end
             end
           end
         end
@@ -40,6 +48,13 @@ module Legatus
       def model(mname, &block)
         @models ||= {}
         @models[mname] = block
+      end
+
+      def find(klass, options={})
+        lambda do |props|
+          id = Chain.new(options).apply(props)
+          klass.find(id)
+        end
       end
 
       def validate(*models)
@@ -93,38 +108,39 @@ module Legatus
     end
 
     def validate
-      self.valid? and self.class.validations.each do |mname|
-        self.check(mname => self.send(mname))
-      end if self.class.validations.present?
+      return (
+        self.valid? and self.class.validations.each do |mname|
+          self.check(mname => self.send(mname))
+        end
+      ) if self.class.validations.present?
 
-      self.valid? and self.class.models.each do |mname, loader|
-        self.check(mname => self.send(mname))
-      end if self.class.models.present?
+      return (
+        self.valid? and self.class.models.each do |mname, loader|
+          self.check(mname => self.send(mname))
+        end
+      ) if self.class.models.present?
     end
 
     def persist
-      self.valid? and UnitOfWork.transaction do |uow|
-        self.class.transactions.each do |handler|
-          handler.call(uow, self)
-        end
-      end
+      return nil if self.invalid?
+
+      self.class.transactions.each do |handler|
+        uow = UnitOfWork.new
+        handler.call(uow, self)
+        uow.commit
+      end if self.class.transactions.present?
     end
     
     def execute
       return (
-        self.valid? and
-        self.executed?(:clean) and
-        self.executed?(:load) and 
-        self.executed?(:validate) and
-        self.executed?(:persist)
+        self.valid? and self.executed?(:clean) and
+        self.valid? and self.executed?(:load) and 
+        self.valid? and self.executed?(:validate) and
+        self.valid? and self.executed?(:persist)
       )
     end
 
     protected
-      def chain(obj, invocations)
-        return Chain.new(invocations).apply(obj)
-      end
-
       def reqs(source, attributes)
         attributes.each do |attribute|
           next if not source[attribute].blank?
