@@ -2,7 +2,7 @@ module Legatus
   module Repository
     extend ActiveSupport::Concern
     class_methods do
-      def find_and_init(filters, attributes=nil)
+      def find_and_set(filters, attributes=nil)
         instance = self.find_one(filters)
         instance ||= self.new
 
