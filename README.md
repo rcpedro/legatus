@@ -240,7 +240,7 @@ The uow above is a ```Legatus::UnitOfWork``` which is useful for directives that
 
 ### All Together Now
 
-The save order directive, using class-level definitions, would then look like:
+The save item directive, using class-level definitions, would then look like:
 
 ```ruby
 class Product::Item::Save < Legatus::Directive
@@ -267,6 +267,67 @@ class Product::Item::Save < Legatus::Directive
 end
 ```
 
+Below is an example of a more complex directive with multiple models involved:
+
+```ruby
+class School::Student::Register < Legatus::Directive
+
+  attr_accessor :user, :university, 
+                :graduate, :student, :enrollment
+
+  props do |params|
+    {
+      graduate:   { dig: [:graduate],              permit: [:start_date] },
+      university: { dig: [:graduate, :university], permit: [:name] },
+      student:    { dig: [:student],               permit: [:partner_id, :course_id, :start_date] },
+      user:       { dig: [:student, :user],        permit: [:first_name, :last_name, :email, :username, :contact_no] },
+      form:       { dig: [:enrollment, :form],     permit!: nil }
+    }
+  end
+
+  model(:user) do |props|
+    Auth::User.find_and_init(
+      props[:user].slice(:email), 
+      props[:user]
+    )
+  end
+
+  model(:university) do |props|
+    Credential::University.find_and_init(
+      props[:university].slice(:name),
+      props[:university]
+    )
+  end
+
+  model(:graduate) do |props, user, university|
+    Credential::Graduate.find_and_init(
+      props[:graduate].merge(
+        user:       user,
+        university: university
+      )
+    )
+  end
+
+  model(:student) do |props, user|
+    School::Student.find_and_init(
+      props[:student].merge(user: user)
+    )
+  end
+
+  model(:enrollment) do |props, student|
+    School::Enrollment.new({
+      student: student,
+      form:    props[:form]
+    })
+  end
+
+  transaction do |uow, operation|
+    uow.save *operation.extract(:user, :university, :graduate, 
+                                :student, :enrollment)
+  end
+end
+```
+
 ## Legatus Controllers
 
 Since `Legatus::Directives` have a uniform lifecycle, a controller which includes the concern `Legatus::Controller` can be defined as:
@@ -274,7 +335,7 @@ Since `Legatus::Directives` have a uniform lifecycle, a controller which include
 ```ruby
 class PingsController < ApplicationController
   include Legatus::Controller
-  
+
   service status: Ping::Status,
           integrations: Ping::Integrations
 end
@@ -291,7 +352,16 @@ resource :pings, only: [] do
 end
 ```
 
-The registered service for each route will be called automatically.
+The registered service for each route will be called automatically. The route for create and update are forwarded to the registered save service if it exists, for example:
+
+```ruby
+class Product::ItemsController
+  include Legatus::Controller
+
+  # This service will handle both create and update
+  service save: Product::Item::Save
+end
+```
 
 
 ## Installation
