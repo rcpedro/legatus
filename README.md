@@ -2,7 +2,7 @@
 Build business directives in Rails. A `Legatus::Directive` has the following properties:
 
 1. `params` - The raw parameters from a controller.
-2. `props` - The filtered out from params. In traditional Rails apps, these are usually declared in the controller (e.g. for a scaffolded `BookController`, there will be a `book_params` method which filters the raw parameters).
+2. `props` - The filtered out values from params. In traditional Rails apps, these are usually declared in the controller (e.g. for a scaffolded `BookController`, there will be a `book_params` method which filters the raw parameters).
 2. `errors` - Errors encountered during the directive's execution.
 
 A `Legatus::Directive` also has the following default lifecycles called in sequence in the directive's `execute` (apart from initialize which is called on creation of the directive) method:
@@ -266,6 +266,32 @@ class Product::Item::Save < Legatus::Directive
   end
 end
 ```
+
+## Legatus Controllers
+
+Since `Legatus::Directives` have a uniform lifecycle, a controller which includes the concern `Legatus::Controller` can be defined as:
+
+```ruby
+class PingsController < ApplicationController
+  include Legatus::Controller
+  
+  service status: Ping::Status,
+          integrations: Ping::Integrations
+end
+```
+
+Wherein `routes.rb` would contain:
+
+```ruby
+resource :pings, only: [] do
+  collection do
+    get :status
+    get :integrations
+  end
+end
+```
+
+The registered service for each route will be called automatically.
 
 
 ## Installation
