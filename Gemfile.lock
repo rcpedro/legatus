@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    legatus (0.1.0)
+    legatus (0.1.1)
       flexcon (~> 0.1.0)
       rails (~> 5.2.1)
 

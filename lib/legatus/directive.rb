@@ -75,7 +75,7 @@ module Legatus
 
       self.class.properties.each do |pname, chain|
         @props[pname] = chain.apply(params)
-      end
+      end if self.class.properties.present?
     end
 
     def valid?
