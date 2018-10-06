@@ -50,13 +50,6 @@ module Legatus
         @models[mname] = block
       end
 
-      def find(klass, options={})
-        lambda do |props|
-          id = Chain.new(options).apply(props)
-          klass.find(id)
-        end
-      end
-
       def validate(*models)
         @validations ||= []
         @validations.concat(models)

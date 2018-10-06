@@ -16,3 +16,4 @@ gemspec
 # To use a debugger
 # gem 'byebug', group: [:development, :test]
 gem 'sqlite3', group: [:development, :test]
+gem 'rspec', group: [:development, :test]

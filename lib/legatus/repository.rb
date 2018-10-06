@@ -1,13 +1,12 @@
 module Legatus
   module Repository
     extend ActiveSupport::Concern
-
     class_methods do
       def find_and_init(filters, attributes=nil)
         instance = self.find_one(filters)
         instance ||= self.new
 
-        attributes ||= filters
+        attributes = filters if attributes.blank?
         instance.assign_attributes(attributes) 
 
         return instance
