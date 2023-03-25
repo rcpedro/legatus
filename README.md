@@ -231,6 +231,8 @@ class Product::Item::Save < Legatus::Directive
   attr_accessor :item
 
   transaction do |uow, operation|
+    # operation is an instance
+    # of Product::Item::Save
     uow.save operation.item
   end
 end
